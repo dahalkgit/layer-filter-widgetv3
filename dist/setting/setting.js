@@ -4,7 +4,7 @@ import { AllWidgetSettingProps } from 'jimu-for-builder'
 import { MapWidgetSelector, SettingSection, SettingRow } from 'jimu-ui/advanced/setting-components'
 import { DataSourceSelector } from 'jimu-ui/advanced/data-source-selector'
 import { AllDataSourceTypes } from 'jimu-core'
-import { Checkbox, Label } from 'jimu-ui'
+import { Checkbox } from 'jimu-ui'
 import { IMConfig } from '../config'
 
 interface State {
@@ -16,8 +16,11 @@ interface State {
 export default class Setting extends React.PureComponent<AllWidgetSettingProps<IMConfig>, State> {
   constructor(props) {
     super(props)
+
+    const config = props.config || Immutable({ layerId: '', allowedFields: [] })
+
     this.state = {
-      selectedDataSourceId: this.props.config?.layerId || '',
+      selectedDataSourceId: config.layerId || '',
       availableFields: [],
       loadingFields: false
     }
@@ -30,7 +33,10 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
   }
 
   componentDidUpdate(prevProps) {
-    if (this.props.config?.layerId !== prevProps.config?.layerId && this.props.config?.layerId) {
+    if (
+      this.props.config?.layerId !== prevProps.config?.layerId &&
+      this.props.config?.layerId
+    ) {
       this.loadAvailableFields()
     }
   }
@@ -43,19 +49,25 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
 
     try {
       const dataSource = DataSourceManager.getInstance().getDataSource(config.layerId) as QueriableDataSource
-      if (dataSource && dataSource.layer) {
-        // Get fields from the data source
-        const fields = dataSource.layer.fields || []
-        const availableFields = fields
-          .filter(field => field.type === 'string' || field.type === 'small-integer' || field.type === 'integer' || field.type === 'double')
-          .map(field => ({
-            name: field.name,
-            alias: field.alias || field.name,
-            type: field.type
-          }))
 
-        this.setState({ availableFields, loadingFields: false })
+      if (!dataSource || !dataSource.layer) {
+        console.warn('DataSource not available or layer missing.')
+        this.setState({ loadingFields: false })
+        return
       }
+
+      const fields = dataSource.layer.fields || []
+      const availableFields = fields
+        .filter(field =>
+          ['string', 'small-integer', 'integer', 'double'].includes(field.type)
+        )
+        .map(field => ({
+          name: field.name,
+          alias: field.alias || field.name,
+          type: field.type
+        }))
+
+      this.setState({ availableFields, loadingFields: false })
     } catch (error) {
       console.error('Error loading fields:', error)
       this.setState({ loadingFields: false })
@@ -70,25 +82,25 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
   }
 
   onDataSourceChange = (useDataSources) => {
-    if (!useDataSources) {
-      return
-    }
+    if (!useDataSources || useDataSources.length === 0) return
 
     const layerId = useDataSources[0]?.dataSourceId || ''
-    
+
     this.props.onSettingChange({
       id: this.props.id,
       config: this.props.config.set('layerId', layerId).set('allowedFields', []),
-      useDataSources: useDataSources
+      useDataSources
     })
 
-    this.setState({ selectedDataSourceId: layerId })
+    this.setState({ selectedDataSourceId: layerId }, () => {
+      this.loadAvailableFields()
+    })
   }
 
   onMapWidgetSelected = (useMapWidgetIds: string[]) => {
     this.props.onSettingChange({
       id: this.props.id,
-      useMapWidgetIds: useMapWidgetIds
+      useMapWidgetIds
     })
   }
 
@@ -97,12 +109,10 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
     let allowedFields = config?.allowedFields || []
 
     if (checked) {
-      // Add field if not already present
       if (!allowedFields.includes(fieldName)) {
         allowedFields = [...allowedFields, fieldName]
       }
     } else {
-      // Remove field
       allowedFields = allowedFields.filter(f => f !== fieldName)
     }
 
@@ -117,20 +127,17 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
     const { availableFields, loadingFields } = this.state
     const allowedFields = config?.allowedFields || []
 
+    if (!config) {
+      return <div style={{ padding: '1rem', color: '#999' }}>Configuration not loaded.</div>
+    }
+
     return (
-      <div css={{
-        width: '100%',
-        height: '100%',
-        padding: '16px'
-      }}>
+      <div css={{ width: '100%', height: '100%', padding: '16px' }}>
+        {/* Map Selector */}
         <SettingSection title="Map Configuration">
           <SettingRow>
-            <div css={{ width: '100%' }}>
-              <label css={{ 
-                display: 'block', 
-                marginBottom: '8px',
-                fontWeight: 'bold'
-              }}>
+            <div style={{ width: '100%' }}>
+              <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>
                 Select Map Widget:
               </label>
               <MapWidgetSelector
@@ -141,14 +148,11 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
           </SettingRow>
         </SettingSection>
 
+        {/* Data Source Selector */}
         <SettingSection title="Data Source Configuration">
           <SettingRow>
-            <div css={{ width: '100%' }}>
-              <label css={{ 
-                display: 'block', 
-                marginBottom: '8px',
-                fontWeight: 'bold'
-              }}>
+            <div style={{ width: '100%' }}>
+              <label style={{ fontWeight: 'bold', marginBottom: '8px', display: 'block' }}>
                 Select Layer to Filter:
               </label>
               <DataSourceSelector
@@ -160,16 +164,16 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
               />
             </div>
           </SettingRow>
-          
+
           {config?.layerId && (
             <SettingRow>
-              <div css={{
+              <div style={{
                 padding: '12px',
                 backgroundColor: '#f0f8ff',
                 borderRadius: '4px',
                 border: '1px solid #d1ecf1'
               }}>
-                <p css={{ margin: 0, fontSize: '14px', color: '#0c5460' }}>
+                <p style={{ margin: 0, fontSize: '14px', color: '#0c5460' }}>
                   <strong>Selected Layer ID:</strong> {config.layerId}
                 </p>
               </div>
@@ -177,24 +181,21 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
           )}
         </SettingSection>
 
+        {/* Field Configuration */}
         {config?.layerId && (
           <SettingSection title="Field Configuration">
             <SettingRow>
-              <div css={{ width: '100%' }}>
-                <label css={{ 
-                  display: 'block', 
-                  marginBottom: '12px',
-                  fontWeight: 'bold'
-                }}>
+              <div style={{ width: '100%' }}>
+                <label style={{ fontWeight: 'bold', marginBottom: '12px', display: 'block' }}>
                   Select Fields Available to Users:
                 </label>
-                
+
                 {loadingFields ? (
-                  <div css={{ padding: '16px', textAlign: 'center', color: '#666' }}>
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#666' }}>
                     Loading available fields...
                   </div>
                 ) : availableFields.length > 0 ? (
-                  <div css={{
+                  <div style={{
                     maxHeight: '300px',
                     overflowY: 'auto',
                     border: '1px solid #dee2e6',
@@ -202,7 +203,7 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
                     padding: '8px'
                   }}>
                     {availableFields.map(field => (
-                      <div key={field.name} css={{
+                      <div key={field.name} style={{
                         display: 'flex',
                         alignItems: 'center',
                         padding: '8px',
@@ -211,13 +212,11 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
                         <Checkbox
                           checked={allowedFields.includes(field.name)}
                           onChange={(e) => this.onFieldToggle(field.name, e.target.checked)}
-                          css={{ marginRight: '12px' }}
+                          style={{ marginRight: '12px' }}
                         />
-                        <div css={{ flex: 1 }}>
-                          <div css={{ fontWeight: 'bold', fontSize: '14px' }}>
-                            {field.alias}
-                          </div>
-                          <div css={{ fontSize: '12px', color: '#fcfcfc' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{field.alias}</div>
+                          <div style={{ fontSize: '12px', color: '#999' }}>
                             {field.name} ({field.type})
                           </div>
                         </div>
@@ -225,20 +224,20 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
                     ))}
                   </div>
                 ) : (
-                  <div css={{ padding: '16px', textAlign: 'center', color: '#ffffff' }}>
+                  <div style={{ padding: '16px', textAlign: 'center', color: '#999' }}>
                     No compatible fields found in the selected layer.
                   </div>
                 )}
 
                 {allowedFields.length > 0 && (
-                  <div css={{
+                  <div style={{
                     marginTop: '12px',
                     padding: '12px',
-                    backgroundColor: '#484a4b',
+                    backgroundColor: '#f8f9fa',
                     borderRadius: '4px'
                   }}>
                     <strong>Selected Fields ({allowedFields.length}):</strong>
-                    <div css={{ marginTop: '4px', fontSize: '12px' }}>
+                    <div style={{ marginTop: '4px', fontSize: '12px' }}>
                       {allowedFields.join(', ')}
                     </div>
                   </div>
@@ -247,34 +246,6 @@ export default class Setting extends React.PureComponent<AllWidgetSettingProps<I
             </SettingRow>
           </SettingSection>
         )}
-
-        <SettingSection title="Widget Information">
-          <SettingRow>
-            <div css={{
-              padding: '16px',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '6px',
-              border: '1px solid #dee2e6'
-            }}>
-              <h4 css={{ margin: '0 0 12px 0', color: '#495057' }}>
-                Layer Filter Widget
-              </h4>
-              <ul css={{ 
-                margin: 0, 
-                paddingLeft: '20px',
-                fontSize: '14px',
-                color: '#6c757d',
-                lineHeight: '1.5'
-              }}>
-                <li>Allows users to filter the selected layer by configured field values</li>
-                <li>Only shows fields that you select above</li>
-                <li>Provides search functionality for field values</li>
-                <li>Automatically zooms to filtered features</li>
-                <li>Includes clear filter functionality</li>
-              </ul>
-            </div>
-          </SettingRow>
-        </SettingSection>
       </div>
     )
   }
