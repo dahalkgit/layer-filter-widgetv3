@@ -1,6 +1,6 @@
 {
-  "name": "layer-filter-widget",
-  "label": "Layer Filter Widget",
+  "name": "layer-filter-widgetv3",
+  "label": "Layer Filter Widgetv3",
   "type": "widget",
   "version": "1.17.0",
   "description": "A widget that allows users to filter map layers by field attributes with search functionality",
@@ -33,3 +33,4 @@
     "height": 400
   }
 }
+
