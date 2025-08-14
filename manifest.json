@@ -7,7 +7,7 @@
   "author": "Your Organization",
   "copyright": "",
   "license": "",
-  "exbVersion": "1.13.0",
+  "exbVersion": "1.17.0",
   "properties": {
     "hasEmbeddedLayout": false,
     "supportInlineEditing": false,
@@ -25,7 +25,8 @@
     }
   },
   "defaultConfig": {
-    "layerId": ""
+    "layerId": "",
+    "allowedFields": []
   },
   "translatedLocales": ["en"],
   "defaultSize": {
@@ -33,4 +34,3 @@
     "height": 400
   }
 }
-
